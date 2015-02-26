@@ -1,0 +1,338 @@
+#!/bin/bash
+
+#
+
+This script will run (a lot of) the commands recommended in the NSA hardening 
+
+#guide for RHEL, hopefully shortening the time it takes to install a client.  
+
+#This script is not the end-all, be-all of security, some steps will need to be 
+
+#taken manually as well.  This should get a lot of the easier stuff taken care 
+
+#of quickly though.
+
+
+
+echo "System updating on first boot, THIS WILL TAKE A WHILE, please standby..."
+
+
+chkconfig avahi-daemon off
+
+chkconfig avahi-dnsconfd off
+
+chkconfig bluetooth off
+
+chkconfig conman off
+
+chkconfig firstboot off
+
+chkconfig gpm off
+
+chkconfig haldaemon off
+
+chkconfig hidd off
+
+chkconfig hplip off
+
+chkconfig iscsi off
+
+chkconfig iscsid off
+
+chkconfig isdn off
+
+chkconfig irda off
+
+chkconfig irqbalance off
+
+chkconfig ip6tables off
+
+chkconfig kdump off
+
+chkconfig kudzu off
+
+chkconfig mcstrans off
+
+chkconfig mdmonitor off
+
+chkconfig microcode_ctl off
+
+chkconfig multipathd off
+
+chkconfig netconsole off
+
+chkconfig netfs off
+
+chkconfig netplugd off
+
+chkconfig nfs off
+
+chkconfig nfslock off
+
+chkconfig nscd off
+
+chkconfig pcscd off
+
+chkconfig rdisc off
+chkconfig rhnsd off
+
+chkconfig restorecond off
+
+chkconfig rpcgssd off
+
+chkconfig rpcidmapd off
+
+chkconfig rpcsvcgssd off
+
+chkconfig sendmail off
+
+chkconfig smartd off
+
+chkconfig winbind off
+
+chkconfig wpa_supplicant off
+
+chkconfig xfs off
+
+chkconfig ypbind off
+
+chkconfig yum-updatesd off
+
+chkconfig acpid on
+
+chkconfig anacron on
+
+chkconfig atd on
+
+chkconfig cpuspeed on
+
+chkconfig lvm2-monitor on
+
+chkconfig messagebus on
+
+chkconfig ntpd on
+
+chkconfig network on
+
+chkconfig syslog on
+
+chkconfig sshd on
+
+
+
+#Get the appropriate files from the Jumpstart server--
+
+
+mkdir /tmp/jumpstart
+
+mount -t nfs innfs2:/jumpstart /tmp/jumpstart
+
+cp /tmp/jumpstart/Files/rhel-yum.cron /etc/cron.daily
+
+cp /tmp/jumpstart/Files/rhel-intrepo.repo /etc/yum.repos.d
+
+cp /tmp/jumpstart/Files/rhel-motd /etc/motd
+
+cp /tmp/jumpstart/Files/ntp.conf /etc/ntp.conf
+
+cp /tmp/jumpstart/Files/rhel-gdm-warning.xml /usr/share/gdm/themes/RHEL/RHEL.xml
+
+cp /tmp/jumpstart/Files/background.png /usr/share/gdm/themes/RHEL
+
+cp /tmp/jumpstart/Files/logo.png /usr/share/gdm/themes/RHEL
+
+cp /tmp/jumpstart/Files/rhel-syslog.conf /etc/syslog.conf
+
+cp /tmp/jumpstart/Files/rhel-audit.rules /etc/audit/audit.rules
+
+cp /tmp/jumpstart/Files/rhel-nails.options /root/nails.options
+
+cp /tmp/jumpstart/Files/rhel-iptables /etc/sysconfig/iptables
+
+cp /tmp/jumpstart/Files/rhel-mcafee-install.sh /usr/nsuser/mcafee-install.sh.wait
+
+cp /tmp/jumpstart/Packages/antivirus/hotfix/McAfeeVSEForLinux-1.6.0-HF658114.tar.gz /tmp
+
+cp /tmp/jumpstart/Packages/OOffice.tar /tmp
+
+
+umount /tmp/jumpstart
+
+rm -rf /tmp/jumpstart
+
+
+
+#SSH Config
+
+
+echo PermitRootLogin no >> /etc/ssh/sshd_config
+
+echo PermitEmptyPasswords no >> /etc/ssh/sshd_config
+
+echo Banner /etc/motd >> /etc/ssh/sshd_config
+
+sed -i 's/#AllowTcpForwarding yes/AllowTcpForwarding no/g' /etc/ssh/sshd_config
+
+sed -i 's/#X11Forwarding no/X11Forwarding no/g' /etc/ssh/sshd_config
+
+sed -i 's/X11Forwarding yes/#X11Forwarding yes/g' /etc/ssh/sshd_config
+
+sed -i 's/#StrictModes yes/StrictModes yes/g' /etc/ssh/sshd_config
+
+sed -i 's/#IgnoreRhosts yes/IgnoreRhosts yes/g' /etc/ssh/sshd_config
+
+sed -i 's/#HostbasedAuthentication no/HostbasedAuthentication no/g' /etc/ssh/sshd_config
+
+sed -i 's/#RhostsRSAAuthentication no/RhostsRSAAuthentication no/g' /etc/ssh/sshd_config
+
+service sshd restart
+
+
+
+#sudo configuration, have to juggle uucp and sysadmin groups to make Sol10 and RHEL match
+
+
+sed -i 's/uucp:x:14:uucp/uucp:x:11:uucp/g' /etc/group
+
+sed -i 's/uucp:x:10:14/uucp:x:10:11/g' /etc/passwd
+
+echo sysadmin:x:14:nsuser >> /etc/group
+
+echo "%sysadmin		ALL=(ALL)	ALL" >> /etc/sudoers
+
+
+
+#Syslog changes (the new syslog file was copied earlier)
+
+
+for i in kern.log mail.log daemon.log; do
+
+touch /var/log/$i
+chown root:root /var/log/$i
+
+chmod 0600 /var/log/$i
+
+done
+
+
+
+#disable CUPS listener service
+
+
+sed -i 's/Port 631/Listen localhost:631/g' /etc/cups/cupsd.conf
+
+
+
+
+#IP Routing changes
+
+
+echo net.ipv4.conf.all.accept_source_route = 0 >> /etc/sysctl.conf
+
+echo net.ipv4.conf.all.accept_redirects = 0 >> /etc/sysctl.conf
+
+echo net.ipv4.icmp_echo_ignore_broadcasts = 1 >> /etc/sysctl.conf
+
+echo net.ipv4.icmp_ignore_bogus_error_responses = 1 >> /etc/sysctl.conf
+
+echo net.ipv4.conf.all.log_martians = 1 >> /etc/sysctl.conf
+
+
+
+#Networking changes
+
+
+sed -i 's/NETWORKING_IPV6=yes/NETWORKING_IPV6=no/g' /etc/sysconfig/network
+
+echo NOZEROCONF=yes >> /etc/sysconfig/network
+
+
+
+#Disable USB drives and IPv6
+
+
+echo "install usb-storage /bin/true" >> /etc/modprobe.conf
+
+echo "install ipv6 /bin/true" >> /etc/modprobe.conf
+
+echo "alias net-pf-31 off" >> /etc/modprobe.conf
+
+echo "alias bluetooth off" >> /etc/modprobe.conf
+
+
+
+#Configure sendmail to be more secure
+
+
+sed -i 's/DAEMON=yes/DAEMON=no/g' /etc/sysconfig/sendmail
+
+
+
+#Remove old/unneeded/insecure/ugly software
+
+
+yum erase -y -q rsh
+
+yum erase -y -q krb5-workstation
+
+yum erase -y -q tftp-server
+
+yum erase -y -q talk-server
+
+yum erase -y -q talk
+
+yum erase -y -q irda-utils
+
+
+
+#anacron/cron security fixes
+
+
+chown root:root /etc/crontab
+
+chown root:root /etc/anacrontab
+
+chmod 600 /etc/crontab
+
+chmod 600 /etc/anacrontab
+
+chown -R root:root cron.hourly cron.daily cron.weekly cron.monthly cron.d
+chmod -R 0700 cron.hourly cron.daily cron.weekly cron.monthly cron.d
+rm /etc/cron.deny
+
+echo nsuser > /etc/cron.allow
+
+rm /etc/at.deny
+
+echo nsuser > /etc/at.allow
+
+
+
+#Install antivirus program at next reboot
+
+
+mv /usr/nsuser/mcafee-install.sh.wait /usr/nsuser/mcafee-install.sh
+
+
+
+#Install OpenOffice 3.3.0
+
+
+tar -xf /tmp/OOffice.tar -C /tmp
+
+rpm -Uvh /tmp/RPMS/*.rpm /tmp/RPMS/desktop-integration/openoffice.org3.3-redhat-menus-3.3-9556.noarch.rpm 
+
+
+
+#Reboot
+
+
+echo "Security lockdown procedures applied `/bin/date`" >> /etc/release
+
+wait
+
+init 6
+
+rm /usr/nsuser/lockdown.sh
+
+exit 0
